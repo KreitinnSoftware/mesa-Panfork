@@ -3,29 +3,52 @@ on:
    workflow_dispatch:
 jobs:
   job-ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22-04
     steps:
-      - uses: actions/checkout@v4
-      - name: download archives
+      - name: "Environment Preparation"
         run: |
-          sudo apt-get install git wget meson ninja* python3
-          pip3 install mako
-      - name: install Ndk
+           sudo apt update
+           sudo apt install -y python3 python3-pip cmake wget git p7zip build-essential pkg-config xmlto fop xsltproc llvm autoconf libxml-parser-perl bison flex glslang-tools
+           pip3 install mako meson ninja docutils StrEnum
+           sudo ln -sf ~/.local/bin/meson /usr/bin/meson
+    
+      - name: "Clone MiceWine-RootFS-Generator"
         run: |
-          wget https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
-          unzip android-ndk-r27c-linux.zip
-          mv android-ndk-r27c-linix $NDK
-          mkdir -p $NDK
-          export PATH=$PATH:$NDK/toochains/prebuilt/llvm/aarch64/bin
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$NDK/toolchains/prebuilt/llvm/aarch64/lib
-      - name: get termux-docker
+           git clone https://github.com/KreitinnSoftware/MiceWine-RootFS-Generator
+
+      - name: "Download Latest Release Rat Packages"
         run: |
-          git clone https://github.com/anonymusuer04/mesa-Panfork-android.git
-          cd mesa-panfork-android
-          mkdir mesa
-          LDFLAGS="-l:libandroid-shmem.a -llog -Wl,--undefined-version"  meson  build -Dgallium-drivers=panfrost,swrast -Dvulkan-drivers= -Dbuildtype=release -Dllvm=disabled -Dplatforms=x11,wayland  -Dprefix=../mesa && ninja -C build install
-      - name: compress mesa
+           cd MiceWine-RootFS-Generator
+           curl -LO# https://github.com/KreitinnSoftware/MiceWine-RootFS-Generator/releases/download/$(curl -s https://api.github.com/repos/KreitinnSoftware/MiceWine-RootFS-Generator/releases | grep tag_name -m 1 | cut -d ":" -f 2 | sed "s/\"//g" | sed "s/,//g" | sed "s/ //g")/MiceWine-Packages.zip || true
+           unzip -o MiceWine-Packages.zip -d built-pkgs || true
+
+      - name: "Create Mesa-Panfork Package on MiceWine-RootFS-Generator"
         run: |
-          cd mesa-panfork-android
-          tar cvf mesa-panfork.tar.gz mesa
-          
+           cd MiceWine-RootFS-Generator
+           mkdir -p packages/mesa-panfork
+           echo PKG_VER=23.0.0-devel > packages/mesa-panfork/build.sh
+           echo PKG_CATEGORY=OpenGLDriver >> packages/mesa-panfork/build.sh
+           echo PKG_PRETTY_NAME="Mesa Panfork Driver" >> packages/mesa-panfork/build.sh
+           echo BLACKLIST_ARCHITECTURE=x86_64 >> packages/mesa-panfork/build.sh
+           echo GIT_URL=https://github.com/KreitinnSoftware/mesa-Panfork >> packages/mesa-panfork/build.sh
+           echo LDFLAGS="-L$PREFIX/lib -landroid-shmem -Wl,--undefined-version" >> packages/mesa-panfork/build.sh
+           echo MESON_ARGS="-Dgallium-drivers=swrast,panfrost -Dvulkan-drivers= -Dglvnd=disabled -Dplatforms=x11 -Dxmlconfig=disabled -Dllvm=disabled -Dopengl=true -Degl=disabled -Dzstd=enabled" >> packages/mesa-panfork/build.sh
+
+           echo mesa-panfork >> packages/index
+
+      - name: "Compile Mesa Panfork"
+        run: |
+           cd MiceWine-RootFS-Generator
+           ./build-all.sh aarch64
+           cd logs
+           7z a /home/runner/Mesa-Panfork-Logs.zip
+
+      - name: "Create Release"
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Mesa Panfork"
+          tag_name: mesa-panfork
+          prerelease: true
+          files: |
+             /home/runner/Mesa-Panfork-Logs.zip
+             
