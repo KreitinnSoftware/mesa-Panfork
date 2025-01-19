@@ -43,6 +43,11 @@ jobs:
            cd logs
            7z a /home/runner/Mesa-Panfork-Logs.zip
 
+      - name: "Save Mesa Panfork"
+        run: |
+           cd MiceWine-RootFS-Generator
+           cp -rf built-pkgs/mesa-panfork* /home/runner/Mesa-Panfork.rat
+
       - name: "Create Release"
         uses: softprops/action-gh-release@v2
         with:
@@ -51,4 +56,4 @@ jobs:
           prerelease: true
           files: |
              /home/runner/Mesa-Panfork-Logs.zip
-             
+             /home/runner/Mesa-Panfork.rat
