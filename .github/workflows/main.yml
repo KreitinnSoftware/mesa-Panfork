@@ -1,6 +1,9 @@
 name: make a mesa
 on:
    workflow_dispatch:
+
+   push:
+    branches: [ "Panfrost-G610" ]
 jobs:
   job-ubuntu:
     runs-on: ubuntu-22-04
